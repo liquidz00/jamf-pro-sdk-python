@@ -8,38 +8,38 @@ class Package(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    id: str | None
-    packageName: str
-    fileName: str
-    categoryId: str
-    info: str | None
-    notes: str | None
-    priority: int
-    osRequirements: str | None
-    fillUserTemplate: bool
-    indexed: bool
-    fillExistingUsers: bool
-    swu: bool
-    rebootRequired: bool
-    selfHealNotify: bool
-    selfHealingAction: str | None
-    osInstall: bool
-    serialNumber: str | None
-    parentPackageId: str | None
-    basePath: str | None
-    suppressUpdates: bool
-    cloudTransferStatus: str
-    ignoreConflicts: bool
-    suppressFromDock: bool
-    suppressEula: bool
-    suppressRegistration: bool
-    installLanguage: str | None
-    md5: str | None
-    sha256: str | None
-    hashType: str | None
-    hashValue: str | None
-    size: str | None
-    osInstallerVersion: str | None
-    manifest: str | None
-    manifestFileName: str | None
-    format: str | None
+    id: str | None = None
+    packageName: str | None = None
+    fileName: str | None = None
+    categoryId: str | None = None
+    info: str | None = None
+    notes: str | None = None
+    priority: int | None = None
+    osRequirements: str | None = None
+    fillUserTemplate: bool | None = None
+    indexed: bool | None = None
+    fillExistingUsers: bool | None = None
+    swu: bool | None = None
+    rebootRequired: bool | None = None
+    selfHealNotify: bool | None = None
+    selfHealingAction: str | None = None
+    osInstall: bool | None = None
+    serialNumber: str | None = None
+    parentPackageId: str | None = None
+    basePath: str | None = None
+    suppressUpdates: bool | None = None
+    cloudTransferStatus: str | None = None
+    ignoreConflicts: bool | None = None
+    suppressFromDock: bool | None = None
+    suppressEula: bool | None = None
+    suppressRegistration: bool | None = None
+    installLanguage: str | None = None
+    md5: str | None = None
+    sha256: str | None = None
+    hashType: str | None = None
+    hashValue: str | None = None
+    size: str | None = None
+    osInstallerVersion: str | None = None
+    manifest: str | None = None
+    manifestFileName: str | None = None
+    format: str | None = None
