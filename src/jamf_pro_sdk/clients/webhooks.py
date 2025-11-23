@@ -218,6 +218,9 @@ def get_webhook_generator(model: Type[webhooks.WebhookModel], **kwargs) -> Type[
     if not kwargs:
         kwargs = {}
 
+    # Explicitly set __check_model__ to False to avoid deprecation warnings
+    kwargs.setdefault("__check_model__", False)
+
     return cast(
         "Type[WebhookGenerator]",
         type(model.__name__ + "Generator", (WebhookGenerator,), {"__model__": model, **kwargs}),
