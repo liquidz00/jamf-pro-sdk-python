@@ -192,3 +192,135 @@ Passing a ``ComputerGroupMember`` object:
     >>> client.classic_api.update_static_computer_group_membership_by_id(3, computers_to_add=[new_member])
     >>> client.classic_api.get_computer_group_by_id(3)).computers
     [ClassicComputerGroupMember(id=10, name='YohnkBook', mac_address='25:3f:d9:ec:d5:b6', alt_mac_address='77:81:eb:54:b2:6a', serial_number='CJYQC70IW2T3')]
+
+Async Classic API Operations
+=============================
+
+All Classic API operations are available asynchronously through the :class:`~jamf_pro_sdk.clients.AsyncJamfProClient`. The async methods follow the same naming and parameter conventions as their synchronous counterparts.
+
+Async Read Requests
+-------------------
+
+Read operations work identically with async, using ``await``:
+
+.. code-block:: python
+
+    >>> import asyncio
+    >>> from jamf_pro_sdk import AsyncJamfProClient, ApiClientCredentialsProvider
+    >>> 
+    >>> async def get_computers():
+    ...     async with AsyncJamfProClient(
+    ...         server="jamf.my.org",
+    ...         credentials=ApiClientCredentialsProvider("client_id", "client_secret")
+    ...     ) as client:
+    ...         computers = await client.classic_api.list_all_computers()
+    ...         return computers
+    ...
+    >>> asyncio.run(get_computers())
+    [ComputersItem(id=1, name="Oscar's MacBook Air", ...), ...]
+    >>>
+
+With subsets:
+
+.. code-block:: python
+
+    >>> import asyncio
+    >>> from jamf_pro_sdk import AsyncJamfProClient, ApiClientCredentialsProvider
+    >>> 
+    >>> async def get_computer_with_subsets():
+    ...     async with AsyncJamfProClient(
+    ...         server="jamf.my.org",
+    ...         credentials=ApiClientCredentialsProvider("client_id", "client_secret")
+    ...     ) as client:
+    ...         computers = await client.classic_api.list_all_computers(subsets=["basic"])
+    ...         return computers
+    ...
+    >>> asyncio.run(get_computer_with_subsets())
+    [ComputersItem(id=1, name="Oscar's MacBook Air", managed=True, ...), ...]
+    >>>
+
+Async Write Requests
+--------------------
+
+Write operations also use ``await`` and accept the same data models:
+
+.. code-block:: python
+
+    >>> import asyncio
+    >>> from jamf_pro_sdk import AsyncJamfProClient, ApiClientCredentialsProvider
+    >>> from jamf_pro_sdk.models.classic.computers import ClassicComputer
+    >>> 
+    >>> async def update_computer():
+    ...     async with AsyncJamfProClient(
+    ...         server="jamf.my.org",
+    ...         credentials=ApiClientCredentialsProvider("client_id", "client_secret")
+    ...     ) as client:
+    ...         computer_update = ClassicComputer()
+    ...         computer_update.location.username = "amy"
+    ...         computer_update.location.real_name = "Amy"
+    ...         computer_update.location.email_address = "amy@my.org"
+    ...         
+    ...         await client.classic_api.update_computer_by_id(5, computer_update)
+    ...         return "Updated"
+    ...
+    >>> asyncio.run(update_computer())
+    'Updated'
+    >>>
+
+Async Example: Update Computer Location
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Here is the async version of updating a computer's location:
+
+.. code-block:: python
+
+    import asyncio
+    from jamf_pro_sdk import AsyncJamfProClient, ApiClientCredentialsProvider
+    from jamf_pro_sdk.models.classic.computers import ClassicComputer
+
+    async def update_computer_location():
+        async with AsyncJamfProClient(
+            server="jamf.my.org",
+            credentials=ApiClientCredentialsProvider("client_id", "client_secret")
+        ) as client:
+            computer_update = ClassicComputer()
+            computer_update.location.username = "amy"
+            computer_update.location.real_name = "Amy"
+            computer_update.location.email_address = "amy@my.org"
+            
+            await client.classic_api.update_computer_by_id(5, computer_update)
+
+    asyncio.run(update_computer_location())
+
+Async Example: Update Static Group Membership
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Here is the async version of updating static group membership:
+
+.. code-block:: python
+
+    import asyncio
+    from jamf_pro_sdk import AsyncJamfProClient, ApiClientCredentialsProvider
+
+    async def update_group_membership():
+        async with AsyncJamfProClient(
+            server="jamf.my.org",
+            credentials=ApiClientCredentialsProvider("client_id", "client_secret")
+        ) as client:
+            # Check current membership
+            group = await client.classic_api.get_computer_group_by_id(3)
+            print(f"Current members: {len(group.computers)}")
+            
+            # Add a computer to the group
+            await client.classic_api.update_static_computer_group_membership_by_id(
+                3,
+                computers_to_add=[10]
+            )
+            
+            # Verify the update
+            updated_group = await client.classic_api.get_computer_group_by_id(3)
+            print(f"Updated members: {len(updated_group.computers)}")
+
+    asyncio.run(update_group_membership())
+
+For comprehensive async usage patterns, including concurrent operations and error handling, see :doc:`/user/async_usage`.

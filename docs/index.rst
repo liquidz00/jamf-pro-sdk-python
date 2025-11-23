@@ -17,10 +17,12 @@ APIs proceed to the **User Guide** to get started. If you are building webhook-b
 for real-time operations proceed to the **Webhooks** section to learn about the tools in this SDK
 to assist you.
 
+The SDK provides both synchronous and asynchronous interfaces for all API operations, allowing you to choose the best approach for your use case.
+
 User Guides
 -----------
 
-Learn how to use the Jamf Pro SDK clients with walkthroughs and examples.
+Learn how to use the Jamf Pro SDK clients with walkthroughs and examples, including both sync and async usage patterns.
 
 .. toctree::
    :maxdepth: 2

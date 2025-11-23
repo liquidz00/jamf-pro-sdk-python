@@ -54,6 +54,65 @@ Create a client object using an API Client ID and Client Secret - the **recommen
 
     When passing your Jamf Pro server name, do not include the scheme (``https://``) as the SDK handles this automatically for you.
 
+Create an Async Client
+-----------------------
+
+For asynchronous operations, use the :class:`~jamf_pro_sdk.clients.AsyncJamfProClient` instead. The async client accepts the same credentials providers and configuration options:
+
+.. code-block:: python
+
+    >>> import asyncio
+    >>> from jamf_pro_sdk import AsyncJamfProClient, ApiClientCredentialsProvider
+    >>> 
+    >>> async def main():
+    ...     client = AsyncJamfProClient(
+    ...         server="jamf.my.org",
+    ...         credentials=ApiClientCredentialsProvider("client_id", "client_secret")
+    ...     )
+    ...     # Use the async client
+    ...     computers = await client.classic_api.list_all_computers()
+    ...     return computers
+    ...
+    >>> asyncio.run(main())
+    [ComputersItem(id=1, name="Oscar's MacBook Air", ...), ...]
+    >>>
+
+The recommended approach is to use the async context manager:
+
+.. code-block:: python
+
+    >>> import asyncio
+    >>> from jamf_pro_sdk import AsyncJamfProClient, ApiClientCredentialsProvider
+    >>> 
+    >>> async def main():
+    ...     async with AsyncJamfProClient(
+    ...         server="jamf.my.org",
+    ...         credentials=ApiClientCredentialsProvider("client_id", "client_secret")
+    ...     ) as client:
+    ...         computers = await client.classic_api.list_all_computers()
+    ...         return computers
+    ...
+    >>> asyncio.run(main())
+    [ComputersItem(id=1, name="Oscar's MacBook Air", ...), ...]
+    >>>
+
+.. tip::
+
+    Using ``async with`` automatically closes the underlying HTTP client when exiting the context, preventing resource leaks.
+
+Both the Classic and Pro APIs are exposed through async interfaces:
+
+.. code-block:: python
+
+    >>> async with AsyncJamfProClient(...) as client:
+    ...     await client.classic_api.list_all_computers()
+    ...     await client.pro_api.get_computer_inventory_v1()
+    ...
+
+.. seealso::
+
+    For comprehensive async usage patterns and examples, see :doc:`/user/async_usage`.
+
 Choosing a Credential Provider
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -212,6 +271,21 @@ You can retrieve the current token at any time:
     AccessToken(type='user', token='eyJhbGciOiJIUzI1NiJ9...', expires=datetime.datetime(2023, 8, 21, 16, 57, 1, 113000, tzinfo=datetime.timezone.utc), scope=None)
     >>> access_token.token
     'eyJhbGciOiJIUzI1NiJ9.eyJhdXRoZW50aWNhdGVkLWFwcCI6IkdFTkVSSUMiLCJhdXRoZW50aWNhdGlvbi10eXBlIjoiSlNTIiwiZ3JvdXBzIjpbXSwic3ViamVjdC10eXBlIjoiSlNTX1VTRVJfSUQiLCJ0b2tlbi11dWlkIjoiM2Y4YzhmY2MtN2U1Ny00Njg5LThiOTItY2UzMTIxYjVlYTY5IiwibGRhcC1zZXJ2ZXItaWQiOi0xLCJzdWIiOiIyIiwiZXhwIjoxNTk1NDIxMDAwfQ.6T9VLA0ABoFO9cqGfp3vWmqllsp3zAbtIW0-M-M41-E'
+    >>>
+
+For async clients, use the async method:
+
+.. code-block:: python
+
+    >>> import asyncio
+    >>> 
+    >>> async def get_token():
+    ...     async with AsyncJamfProClient(...) as client:
+    ...         access_token = await client.get_access_token_async()
+    ...         return access_token
+    ...
+    >>> asyncio.run(get_token())
+    AccessToken(type='user', token='eyJhbGciOiJIUzI1NiJ9...', ...)
     >>>
 
 Both the Classic and Pro APIs are exposed through two interfaces:

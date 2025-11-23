@@ -124,3 +124,176 @@ If you have to perform more complex logic in the threaded operations you can wra
     results = client.concurrent_api_requests(
         wrapper, [{"computer_id": 1, "new_building": ""}]
     )
+
+Performing Async Concurrent Operations
+---------------------------------------
+
+The async client provides even more efficient concurrent operations using Python's ``asyncio`` library. The :meth:`~jamf_pro_sdk.clients.AsyncJamfProClient.async_concurrent_api_requests` method works similarly to the synchronous version but leverages async/await for better performance.
+
+Basic Async Concurrent Operations
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Here is an async version of the mass read operation:
+
+.. code-block:: python
+
+    import asyncio
+    from jamf_pro_sdk import AsyncJamfProClient, ApiClientCredentialsProvider
+
+    async def main():
+        # The default concurrency setting is 5.
+        async with AsyncJamfProClient(
+            server="jamf.my.org",
+            credentials=ApiClientCredentialsProvider("client_id", "client_secret")
+        ) as client:
+            # Get a list of all computers, and then their IDs.
+            all_computers = await client.classic_api.list_all_computers()
+            all_computer_ids = [c.id for c in all_computers]
+            
+            # Pass the API operation and list of IDs into the async method.
+            async for computer in client.async_concurrent_api_requests(
+                handler=client.classic_api.get_computer_by_id,
+                arguments=all_computer_ids
+            ):
+                print(computer.general.id, computer.general.name, computer.location.username)
+
+    asyncio.run(main())
+
+Async Operations with Multiple Arguments
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Just like the synchronous version, you can pass dictionaries that will be unpacked:
+
+.. code-block:: python
+
+    import asyncio
+    from jamf_pro_sdk import AsyncJamfProClient, ApiClientCredentialsProvider
+    from jamf_pro_sdk.models.classic.computers import Computer
+
+    async def main():
+        async with AsyncJamfProClient(
+            server="jamf.my.org",
+            credentials=ApiClientCredentialsProvider("client_id", "client_secret")
+        ) as client:
+            all_computers = await client.classic_api.list_all_computers()
+            
+            # Construct the arguments by iterating over the computer IDs
+            args = [
+                {"method": "get", "resource_path": f"computers/id/{c.id}"}
+                for c in all_computers
+            ]
+            
+            results = client.async_concurrent_api_requests(
+                handler=client.async_classic_api_request,
+                arguments=args
+            )
+            
+            # Iterate over the results
+            async for response in results:
+                print(f"Status: {response.status_code}")
+
+    asyncio.run(main())
+
+Complex Async Wrapper Functions
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+You can wrap complex logic into async functions for concurrent execution:
+
+.. code-block:: python
+
+    import asyncio
+    from jamf_pro_sdk import AsyncJamfProClient, ApiClientCredentialsProvider
+    from jamf_pro_sdk.models.classic.computers import ClassicComputer
+
+    async def update_computer_if_needed(client, computer_id, new_building):
+        """Read a computer and conditionally update its building."""
+        current = await client.classic_api.get_computer_by_id(
+            computer_id,
+            subsets=["location"]
+        )
+        
+        update = ClassicComputer()
+        if current.location.building in ("Day 1", "Low Flying Hawk"):
+            update.location.building = new_building
+            await client.classic_api.update_computer_by_id(computer_id, update)
+            return "Updated"
+        else:
+            return "Not Updated"
+
+    async def main():
+        async with AsyncJamfProClient(
+            server="jamf.my.org",
+            credentials=ApiClientCredentialsProvider("client_id", "client_secret")
+        ) as client:
+            # Create wrapper that includes the client reference
+            async def wrapper(computer_id):
+                return await update_computer_if_needed(client, computer_id, "Main Building")
+            
+            computer_ids = [1, 2, 3, 4, 5]
+            async for result in client.async_concurrent_api_requests(
+                handler=wrapper,
+                arguments=computer_ids
+            ):
+                print(result)
+
+    asyncio.run(main())
+
+Performance Comparison: Sync vs Async
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Async concurrent operations typically provide better performance than thread-based concurrent operations, especially when making many API requests:
+
+**Synchronous (Thread-based):**
+
+- Uses ``ThreadPoolExecutor`` under the hood
+- Each thread has overhead for context switching
+- Suitable for most use cases
+- Works well with any Python code
+
+**Asynchronous:**
+
+- Uses ``asyncio`` event loop
+- Lower overhead than threads
+- Better performance for I/O-bound operations
+- Requires async/await syntax throughout
+
+For most users, the performance difference will be minimal, but async operations can be significantly faster when dealing with hundreds or thousands of concurrent requests.
+
+.. tip::
+
+    Start with the synchronous client for simplicity. Switch to async if you need to integrate with async frameworks or require maximum performance for large-scale concurrent operations.
+
+Custom Async Credentials Providers
+-----------------------------------
+
+You can create custom async credentials providers by implementing the async methods:
+
+.. code-block:: python
+
+    import asyncio
+    from jamf_pro_sdk.clients.auth import CredentialsProvider
+    from jamf_pro_sdk.models.client import AccessToken
+
+    class AsyncDynamoDBProvider(CredentialsProvider):
+        def __init__(self, table_name: str):
+            self.table_name = table_name
+            super().__init__()
+        
+        async def _request_access_token_async(self) -> AccessToken:
+            """Fetch token from DynamoDB asynchronously."""
+            # This is a simplified example
+            import aioboto3
+            
+            session = aioboto3.Session()
+            async with session.resource("dynamodb") as dynamodb:
+                table = await dynamodb.Table(self.table_name)
+                response = await table.get_item(Key={"pk": "access-token"})
+                item = response["Item"]
+                
+                return AccessToken(
+                    type="user",
+                    token=item["token"],
+                    expires=item["expires"]
+                )
+
+When creating custom async providers, implement the ``_request_access_token_async`` method to provide async token retrieval. The synchronous ``_request_access_token`` method should also be implemented if you want to support both sync and async clients with the same provider.

@@ -76,3 +76,85 @@ File downloads will retrieve the download URL to the requested JCDS file and the
     >>>
 
 Download operations retrieve the file in 20 MiB chunks using range requests. The SDK is able to handle extremely large file sizes in this way.
+
+Async JCDS2 Operations
+=======================
+
+All JCDS2 operations are available asynchronously through the :class:`~jamf_pro_sdk.clients.AsyncJamfProClient`. Async operations are particularly beneficial for JCDS2 since file operations can be time-consuming.
+
+Async File Uploads
+------------------
+
+Upload files asynchronously using the async client:
+
+.. code-block:: python
+
+    >>> import asyncio
+    >>> from jamf_pro_sdk import AsyncJamfProClient, ApiClientCredentialsProvider
+    >>> 
+    >>> async def upload_file():
+    ...     async with AsyncJamfProClient(
+    ...         server="dummy.jamfcloud.com",
+    ...         credentials=ApiClientCredentialsProvider("client_id", "client_secret")
+    ...     ) as client:
+    ...         await client.jcds2.upload_file(file_path="/path/to/my.pkg")
+    ...
+    >>> asyncio.run(upload_file())
+    >>>
+
+Async File Downloads
+--------------------
+
+Download files asynchronously:
+
+.. code-block:: python
+
+    >>> import asyncio
+    >>> from jamf_pro_sdk import AsyncJamfProClient, ApiClientCredentialsProvider
+    >>> 
+    >>> async def download_file():
+    ...     async with AsyncJamfProClient(
+    ...         server="dummy.jamfcloud.com",
+    ...         credentials=ApiClientCredentialsProvider("client_id", "client_secret")
+    ...     ) as client:
+    ...         await client.jcds2.download_file(
+    ...             file_name="my.pkg",
+    ...             download_path="/path/to/downloads/"
+    ...         )
+    ...
+    >>> asyncio.run(download_file())
+    >>>
+
+Concurrent File Operations
+---------------------------
+
+You can leverage async concurrent operations to upload or download multiple files simultaneously:
+
+.. code-block:: python
+
+    import asyncio
+    from jamf_pro_sdk import AsyncJamfProClient, ApiClientCredentialsProvider
+
+    async def upload_multiple_files():
+        """Upload multiple package files concurrently."""
+        async with AsyncJamfProClient(
+            server="dummy.jamfcloud.com",
+            credentials=ApiClientCredentialsProvider("client_id", "client_secret")
+        ) as client:
+            file_paths = [
+                "/path/to/package1.pkg",
+                "/path/to/package2.pkg",
+                "/path/to/package3.pkg"
+            ]
+            
+            async for result in client.async_concurrent_api_requests(
+                handler=client.jcds2.upload_file,
+                arguments=[{"file_path": fp} for fp in file_paths]
+            ):
+                print(f"Upload complete: {result}")
+
+    asyncio.run(upload_multiple_files())
+
+.. tip::
+
+    When uploading or downloading multiple large files, async operations can significantly reduce total processing time by performing I/O operations concurrently.
