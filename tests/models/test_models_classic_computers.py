@@ -7,8 +7,7 @@ from src.jamf_pro_sdk.models.classic.computers import (
     ClassicComputerGeneralRemoteManagement,
     ClassicComputerGroupsAccountsUserInventoriesUser,
 )
-
-from tests.unit import utils
+from tests.utils import remove_whitespaces_newlines
 
 COMPUTER_JSON = {
     "computer": {
@@ -361,7 +360,7 @@ def test_computer_model_json_output_matches_input():
     assert not diff
 
 
-COMPUTER_XML_OUTPUT = utils.remove_whitespaces_newlines(
+COMPUTER_XML_OUTPUT = remove_whitespaces_newlines(
     f"""<?xml version="1.0" encoding="UTF-8" ?>
 <computer>
     <general>
