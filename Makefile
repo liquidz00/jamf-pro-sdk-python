@@ -5,14 +5,13 @@ VENV_DIR 		:= .venv
 
 .PHONY: all clean docs install test
 
-export PYTHONPATH := $(shell pwd)  # Export path for script resolution
+# Export path for script resolution
+export PYTHONPATH := $(shell pwd)
 
 help:
 	@echo "Available commands:"
 	@echo "  make install          - Install dependencies"
 	@echo "  make test             - Run all tests"
-	@echo "  make test-sync        - Run only sync tests"
-	@echo "  make test-async       - Run only async tests"
 	@echo "  make test-cov         - Run tests with coverage"
 	@echo "  make lint             - Check code style"
 	@echo "  make format           - Auto-format code"
@@ -33,12 +32,6 @@ clean:
 
 test:
 	$(UV) run pytest tests/ -v
-
-test-sync:
-	$(UV) run pytest tests/sync -v
-
-test-async:
-	$(UV) run pytest tests/async -v
 
 test-cov:
 	$(UV) run pytest tests/ --cov=bin --cov-report=term-missing
