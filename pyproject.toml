@@ -52,7 +52,9 @@ dev = [
     "sphinx",
     "autodoc-pydantic",
     "furo",
-    "build"
+    "build",
+    "pytest-mock>=3.15.1",
+    "pytest-asyncio>=1.2.0",
 ]
 
 
@@ -83,7 +85,7 @@ readme = {file = ["README.md"], content-type = "text/markdown"}
 
 [tool.ruff]
 line-length = 100
-target-version = "py39"
+target-version = "py310"
 src = [
     "src",
     "tests"
@@ -121,21 +123,3 @@ addopts = [
 #    "--cov-fail-under=90",
 ]
 testpaths = [ "./tests" ]
-
-
-#[tool.coverage.run]
-#source = ["src", "jamf_pro_sdk"]
-#branch = true
-#parallel = true
-
-
-#[tool.coverage.report]
-#show_missing = true
-# Uncomment the following line to fail to build when the coverage is too low
-# fail_under = 99
-
-#[tool.coverage.xml]
-#output = "coverage/coverage.xml"
-
-#[tool.coverage.html]
-#directory = "coverage/htmlcov"
