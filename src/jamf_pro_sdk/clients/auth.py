@@ -1,9 +1,10 @@
+import asyncio
 import json
 import logging
 from datetime import datetime, timedelta, timezone
 from getpass import getpass
 from threading import Lock
-from typing import TYPE_CHECKING, Any, Dict, Optional, Type, overload
+from typing import TYPE_CHECKING, Any, Type, overload
 
 try:
     import boto3
@@ -21,10 +22,10 @@ except ImportError:
 else:
     KEYRING_IS_INSTALLED = True
 
-import requests
+import httpx
 
 if TYPE_CHECKING:
-    from . import JamfProClient
+    from . import AsyncJamfProClient, JamfProClient
 
 from ..exceptions import CredentialsError
 from ..models.client import AccessToken
@@ -36,12 +37,24 @@ class CredentialsProvider:
     """The base credentials provider class all other providers should inherit from."""
 
     def __init__(self):
-        self._client: Optional["JamfProClient"] = None
+        self._client: "JamfProClient" | None = None
+        self._async_client: "AsyncJamfProClient" | None = None
         self._global_lock = Lock()
+        self._async_lock: asyncio.Lock | None = None
         self._access_token = AccessToken()
 
     def attach_client(self, client: "JamfProClient"):
         self._client = client
+
+    def attach_async_client(self, client: "AsyncJamfProClient"):
+        """Attach an async client to this credentials provider.
+
+        :param client: The async Jamf Pro client.
+        :type client: AsyncJamfProClient
+        """
+        self._async_client = client
+        if self._async_lock is None:
+            self._async_lock = asyncio.Lock()
 
     def get_access_token(self, thread_lock: Lock = None) -> AccessToken:
         """Thread safe method for obtaining the current API access token.
@@ -81,16 +94,17 @@ class CredentialsProvider:
         """
         logger.debug("Refreshing access token with 'keep-alive'")
         try:
-            with self._client.session.post(
+            resp = self._client.session.post(
                 url=f"{self._client.base_server_url}/api/v1/auth/keep-alive",
                 headers={
                     "Authorization": f"Bearer {self._access_token.token}",
                     "Accept": "application/json",
                 },
                 timeout=15,
-            ) as resp:
-                return AccessToken(type="user", **resp.json())
-        except requests.exceptions.HTTPError as err:
+            )
+            resp.raise_for_status()
+            return AccessToken(type="user", **resp.json())
+        except httpx.HTTPStatusError as err:
             logger.error(err)
             logger.debug(err.response.text)
             raise
@@ -111,7 +125,7 @@ class CredentialsProvider:
         """
         if self._client is None:
             raise CredentialsError("A Jamf Pro client is not attached to this credentials provider")
-        kwargs: Dict[str, Any]
+        kwargs: dict[str, Any]
 
         # TODO: Future OAuth flows may need to set different TTL values for refresh behavior
         token_cache_ttl = 60 if self._access_token.type == "user" else 3
@@ -139,6 +153,114 @@ class CredentialsProvider:
         else:
             self._access_token = self._request_access_token()
 
+    async def get_access_token_async(self, async_lock: asyncio.Lock | None = None) -> AccessToken:
+        """Async thread safe method for obtaining the current API access token.
+
+        :param async_lock: Optional asyncio lock to use. If not provided, uses the global lock.
+        :type async_lock: asyncio.Lock | None
+
+        :return: An ``AccessToken`` object.
+        :rtype: AccessToken
+        """
+        if async_lock is None:
+            if self._async_lock is None:
+                self._async_lock = asyncio.Lock()
+            async_lock = self._async_lock
+
+        async with async_lock:
+            await self._refresh_access_token_async()
+            return self._access_token
+
+    async def _request_access_token_async(self) -> AccessToken:
+        """This internal async method requests a new Jamf Pro access token.
+
+        Custom credentials providers should override this method. Refer to the ``ApiClientProvider``
+        and ``UserCredentialsProvider`` classes for example implementations.
+
+        This method must always return an :class:`~jamf_pro_sdk.models.client.AccessToken` object.
+
+        :return: An ``AccessToken`` object.
+        :rtype: AccessToken
+        """
+        return AccessToken()
+
+    async def _keep_alive_async(self) -> AccessToken:
+        """Refresh an access token using the ``keep-alive`` endpoint asynchronously.
+
+        As of Jamf Pro 10.49 this is only supported by user bearer tokens.
+
+        This method may be removed in a future update.
+
+        :return: An ``AccessToken`` object.
+        :rtype: AccessToken
+        """
+        if self._async_client is None:
+            raise CredentialsError(
+                "An async Jamf Pro client is not attached to this credentials provider"
+            )
+
+        logger.debug("Refreshing access token with 'keep-alive'")
+        try:
+            resp = await self._async_client.async_client.post(
+                url=f"{self._async_client.base_server_url}/api/v1/auth/keep-alive",
+                headers={
+                    "Authorization": f"Bearer {self._access_token.token}",
+                    "Accept": "application/json",
+                },
+                timeout=15,
+            )
+            resp.raise_for_status()
+            return AccessToken(type="user", **resp.json())
+        except httpx.HTTPStatusError as err:
+            logger.error(err)
+            logger.debug(err.response.text)
+            raise
+
+    async def _refresh_access_token_async(self) -> None:
+        """Requests and stores an API access token asynchronously.
+
+        Refresh behavior is determined by the token's type.
+
+        For user bearer tokens, if the cached token's remaining time is greater than or equal to 60
+        seconds it will be returned. If the cached token's remaining time is greater than 5 seconds
+        but less than 60 seconds the token will be refreshed using the ``keep-alive`` API.
+
+        For OAuth tokens, if the cached token's remaining time is greater than or equal to 3 seconds
+        it will be returned.
+
+        If the above conditions are not met a new token will be requested.
+        """
+        if self._async_client is None:
+            raise CredentialsError(
+                "An async Jamf Pro client is not attached to this credentials provider"
+            )
+
+        # TODO: Future OAuth flows may need to set different TTL values for refresh behavior
+        token_cache_ttl = 60 if self._access_token.type == "user" else 3
+
+        # Return the cached token if expiration is below the cache TTL
+        if (
+            self._access_token.token
+            and not self._access_token.is_expired
+            and self._access_token.seconds_remaining >= token_cache_ttl
+        ):
+            logger.debug(
+                "Using cached access token (%ds remaining)",
+                self._access_token.seconds_remaining,
+            )
+            self._access_token = self._access_token
+        # Refresh the cached user bearer token using 'keep-alive'
+        elif (
+            self._access_token.token
+            and self._access_token.type == "user"
+            and not self._access_token.is_expired
+            and 5 < self._access_token.seconds_remaining < token_cache_ttl
+        ):
+            self._access_token = await self._keep_alive_async()
+        # Request a new token
+        else:
+            self._access_token = await self._request_access_token_async()
+
 
 class ApiClientCredentialsProvider(CredentialsProvider):
     def __init__(self, client_id: str, client_secret: str):
@@ -156,38 +278,78 @@ class ApiClientCredentialsProvider(CredentialsProvider):
 
     def _request_access_token(self) -> AccessToken:
         """Request a new an API access token using client credentials flow."""
-        with self._client.session.post(
-            url=f"{self._client.base_server_url}/api/v1/oauth/token",
-            headers={
-                "Accept": "application/json",
-                "Content-Type": "application/x-www-form-urlencoded",
-            },
-            data={
-                "client_id": self.client_id,
-                "client_secret": self.client_secret,
-                "grant_type": "client_credentials",
-            },
-            timeout=15,
-        ) as resp:
-            try:
-                logger.debug(
-                    "Requesting new access token (%ds remaining)",
-                    self._access_token.seconds_remaining,
-                )
-                resp.raise_for_status()
-            except requests.exceptions.HTTPError as err:
-                logger.error(err)
-                logger.debug(err.response.text)
-                raise
-
-            logger.debug(resp.content)
-            resp_data = resp.json()
-            return AccessToken(
-                type="oauth",
-                token=resp_data["access_token"],
-                expires=datetime.now(timezone.utc) + timedelta(seconds=resp_data["expires_in"]),
-                scope=resp_data["scope"].split(),
+        try:
+            resp = self._client.session.post(
+                url=f"{self._client.base_server_url}/api/v1/oauth/token",
+                headers={
+                    "Accept": "application/json",
+                    "Content-Type": "application/x-www-form-urlencoded",
+                },
+                data={
+                    "client_id": self.client_id,
+                    "client_secret": self.client_secret,
+                    "grant_type": "client_credentials",
+                },
+                timeout=15,
             )
+            logger.debug(
+                "Requesting new access token (%ds remaining)",
+                self._access_token.seconds_remaining,
+            )
+            resp.raise_for_status()
+        except httpx.HTTPStatusError as err:
+            logger.error(err)
+            logger.debug(err.response.text)
+            raise
+
+        logger.debug(resp.content)
+        resp_data = resp.json()
+        return AccessToken(
+            type="oauth",
+            token=resp_data["access_token"],
+            expires=datetime.now(timezone.utc) + timedelta(seconds=resp_data["expires_in"]),
+            scope=resp_data["scope"].split(),
+        )
+
+    async def _request_access_token_async(self) -> AccessToken:
+        """Request a new API access token using client credentials flow asynchronously."""
+        if self._async_client is None:
+            raise CredentialsError(
+                "An async Jamf Pro client is not attached to this credentials provider"
+            )
+
+        try:
+            resp = await self._async_client.async_client.post(
+                url=f"{self._async_client.base_server_url}/api/v1/oauth/token",
+                headers={
+                    "Accept": "application/json",
+                    "Content-Type": "application/x-www-form-urlencoded",
+                },
+                data={
+                    "client_id": self.client_id,
+                    "client_secret": self.client_secret,
+                    "grant_type": "client_credentials",
+                },
+                timeout=15,
+            )
+            logger.debug(
+                "Requesting new access token (%ds remaining)",
+                self._access_token.seconds_remaining,
+            )
+            resp.raise_for_status()
+        except httpx.HTTPStatusError as err:
+            logger.error(err)
+            logger.debug(err.response.text)
+            raise
+
+        logger.debug(resp.content)
+        resp_data = resp.json()
+        return AccessToken(
+            type="oauth",
+            token=resp_data["access_token"],
+            expires=datetime.now(timezone.utc) + timedelta(seconds=resp_data["expires_in"]),
+            scope=resp_data["scope"].split(),
+        )
 
 
 class UserCredentialsProvider(CredentialsProvider):
@@ -207,24 +369,50 @@ class UserCredentialsProvider(CredentialsProvider):
 
     def _request_access_token(self) -> AccessToken:
         """Request a new an API access token using user authentication."""
-        with self._client.session.post(
-            url=f"{self._client.base_server_url}/api/v1/auth/token",
-            auth=(self.username, self.password),
-            headers={"Accept": "application/json"},
-            timeout=15,
-        ) as resp:
-            try:
-                logger.debug(
-                    "Requesting new access token (%ds remaining)",
-                    self._access_token.seconds_remaining,
-                )
-                resp.raise_for_status()
-            except requests.exceptions.HTTPError as err:
-                logger.error(err)
-                logger.debug(err.response.text)
-                raise
+        try:
+            resp = self._client.session.post(
+                url=f"{self._client.base_server_url}/api/v1/auth/token",
+                auth=(self.username, self.password),
+                headers={"Accept": "application/json"},
+                timeout=15,
+            )
+            logger.debug(
+                "Requesting new access token (%ds remaining)",
+                self._access_token.seconds_remaining,
+            )
+            resp.raise_for_status()
+        except httpx.HTTPStatusError as err:
+            logger.error(err)
+            logger.debug(err.response.text)
+            raise
 
-            return AccessToken(type="user", **resp.json())
+        return AccessToken(type="user", **resp.json())
+
+    async def _request_access_token_async(self) -> AccessToken:
+        """Request a new API access token using user authentication asynchronously."""
+        if self._async_client is None:
+            raise CredentialsError(
+                "An async Jamf Pro client is not attached to this credentials provider"
+            )
+
+        try:
+            resp = await self._async_client.async_client.post(
+                url=f"{self._async_client.base_server_url}/api/v1/auth/token",
+                auth=(self.username, self.password),
+                headers={"Accept": "application/json"},
+                timeout=15,
+            )
+            logger.debug(
+                "Requesting new access token (%ds remaining)",
+                self._access_token.seconds_remaining,
+            )
+            resp.raise_for_status()
+        except httpx.HTTPStatusError as err:
+            logger.error(err)
+            logger.debug(err.response.text)
+            raise
+
+        return AccessToken(type="user", **resp.json())
 
 
 @overload
@@ -346,8 +534,8 @@ def load_from_keychain(
 def load_from_keychain(
     provider_type: Type[CredentialsProvider],
     server: str,
-    client_id: Optional[str] = None,
-    username: Optional[str] = None,
+    client_id: str | None = None,
+    username: str | None = None,
 ) -> CredentialsProvider:
     """Load credentials from the macOS login keychain and return an instance of the
     specified credentials provider.
@@ -370,10 +558,10 @@ def load_from_keychain(
     :type server: str
 
     :param client_id: The client ID used for ``ApiClientCredentialsProvider``. Required if ``provider_type`` is that provider.
-    :type client_id: Optional[str]
+    :type client_id: str | None
 
     :param username: The username used for ``UserCredentialsProvider``. Required if ``provider_type`` is that provider.
-    :type username: Optional[str]
+    :type username: str | None
 
     :return: An instantiated credentials provider using the keychain values.
     :rtype: CredentialsProvider

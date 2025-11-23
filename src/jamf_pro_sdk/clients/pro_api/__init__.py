@@ -1,6 +1,13 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable, Iterator, List, Literal, Optional, Union, overload
+from typing import (
+    TYPE_CHECKING,
+    AsyncIterator,
+    Callable,
+    Iterator,
+    Literal,
+    overload,
+)
 from uuid import UUID
 
 from ...models.pro.api_options import (
@@ -34,10 +41,10 @@ from ...models.pro.mdm import (
 )
 from ...models.pro.mobile_devices import MobileDevice
 from ...models.pro.packages import Package
-from .pagination import Paginator
+from .pagination import AsyncPaginator, Paginator
 
 if TYPE_CHECKING:
-    import requests
+    import httpx
 
     from .pagination import FilterExpression, Page, SortExpression
 
@@ -47,7 +54,7 @@ class ProApi:
 
     def __init__(
         self,
-        request_method: Callable[..., requests.Response],
+        request_method: Callable[..., httpx.Response],
         concurrent_requests_method: Callable[..., Iterator],
     ):
         self.api_request = request_method
@@ -58,37 +65,37 @@ class ProApi:
     @overload
     def get_computer_inventory_v1(
         self,
-        sections: Optional[List[str]] = ...,
+        sections: list[str] | None = ...,
         start_page: int = ...,
-        end_page: Optional[int] = ...,
+        end_page: int | None = ...,
         page_size: int = ...,
-        sort_expression: Optional[SortExpression] = ...,
-        filter_expression: Optional[FilterExpression] = ...,
+        sort_expression: SortExpression | None = ...,
+        filter_expression: FilterExpression | None = ...,
         return_generator: Literal[False] = False,
-    ) -> List[Computer]: ...
+    ) -> list[Computer]: ...
 
     @overload
     def get_computer_inventory_v1(
         self,
-        sections: Optional[List[str]] = ...,
+        sections: list[str] | None = ...,
         start_page: int = ...,
-        end_page: Optional[int] = ...,
+        end_page: int | None = ...,
         page_size: int = ...,
-        sort_expression: Optional[SortExpression] = ...,
-        filter_expression: Optional[FilterExpression] = ...,
+        sort_expression: SortExpression | None = ...,
+        filter_expression: FilterExpression | None = ...,
         return_generator: Literal[True] = True,
     ) -> Iterator[Page]: ...
 
     def get_computer_inventory_v1(
         self,
-        sections: Optional[List[str]] = None,
+        sections: list[str] | None = None,
         start_page: int = 0,
-        end_page: Optional[int] = None,
+        end_page: int | None = None,
         page_size: int = 100,
-        sort_expression: Optional[SortExpression] = None,
-        filter_expression: Optional[FilterExpression] = None,
+        sort_expression: SortExpression | None = None,
+        filter_expression: FilterExpression | None = None,
         return_generator: bool = False,
-    ) -> Union[List[Computer], Iterator[Page]]:
+    ) -> list[Computer] | Iterator[Page]:
         """Returns a list of computer inventory records.
 
         :param sections: (optional) Select which sections of the computer's details to return. If
@@ -99,7 +106,7 @@ class ProApi:
 
             .. autoapioptions:: jamf_pro_sdk.models.pro.api_options.get_computer_inventory_v1_allowed_sections
 
-        :type sections: List[str]
+        :type sections: list[str]
 
         :param start_page: (optional) The page to begin returning results from. See
             :class:`Paginator` for more information.
@@ -135,8 +142,8 @@ class ProApi:
             default, the results for all pages will be returned in a single response.
         :type return_generator: bool
 
-        :return: List of computers OR a paginator generator.
-        :rtype: List[~jamf_pro_sdk.models.pro.computer.Computer] | Iterator[Page]
+        :return: list of computers OR a paginator generator.
+        :rtype: list[~jamf_pro_sdk.models.pro.computer.Computer] | Iterator[Page]
 
         """
         if not sections:
@@ -175,33 +182,33 @@ class ProApi:
     def get_packages_v1(
         self,
         start_page: int = ...,
-        end_page: Optional[int] = ...,
+        end_page: int | None = ...,
         page_size: int = ...,
-        sort_expression: Optional[SortExpression] = ...,
-        filter_expression: Optional[FilterExpression] = ...,
+        sort_expression: SortExpression | None = ...,
+        filter_expression: FilterExpression | None = ...,
         return_generator: Literal[False] = False,
-    ) -> List[Package]: ...
+    ) -> list[Package]: ...
 
     @overload
     def get_packages_v1(
         self,
         start_page: int = ...,
-        end_page: Optional[int] = ...,
+        end_page: int | None = ...,
         page_size: int = ...,
-        sort_expression: Optional[SortExpression] = ...,
-        filter_expression: Optional[FilterExpression] = ...,
+        sort_expression: SortExpression | None = ...,
+        filter_expression: FilterExpression | None = ...,
         return_generator: Literal[True] = True,
     ) -> Iterator[Page]: ...
 
     def get_packages_v1(
         self,
         start_page: int = 0,
-        end_page: Optional[int] = None,
+        end_page: int | None = None,
         page_size: int = 100,
-        sort_expression: Optional[SortExpression] = None,
-        filter_expression: Optional[FilterExpression] = None,
+        sort_expression: SortExpression | None = None,
+        filter_expression: FilterExpression | None = None,
         return_generator: bool = False,
-    ) -> Union[List[Package], Iterator[Page]]:
+    ) -> list[Package] | Iterator[Page]:
         """Returns a list of package records.
 
         :param start_page: (optional) The page to begin returning results from. See
@@ -238,8 +245,8 @@ class ProApi:
             default, the results for all pages will be returned in a single response.
         :type return_generator: bool
 
-        :return: List of packages OR a paginator generator.
-        :rtype: List[~jamf_pro_sdk.models.pro.packages.package] | Iterator[Page]
+        :return: list of packages OR a paginator generator.
+        :rtype: list[~jamf_pro_sdk.models.pro.packages.package] | Iterator[Page]
 
         """
         if sort_expression:
@@ -263,11 +270,11 @@ class ProApi:
 
     # JCDS APIs
 
-    def get_jcds_files_v1(self) -> List[File]:
+    def get_jcds_files_v1(self) -> list[File]:
         """Return a list of files in the JCDS.
 
-        :return: List JCDS File objects.
-        :rtype: List[File]
+        :return: list JCDS File objects.
+        :rtype: list[File]
 
         """
         resp = self.api_request(method="get", resource_path="v1/jcds/files")
@@ -306,11 +313,11 @@ class ProApi:
 
     # MDM APIs
 
-    def renew_mdm_profile_v1(self, udids: List[Union[str, UUID]]) -> RenewMdmProfileResponse:
+    def renew_mdm_profile_v1(self, udids: list[str | UUID]) -> RenewMdmProfileResponse:
         """Renews device MDM Profiles, including the device identity certificate within the MDM Profile.
 
         :param udids: A list of device UDIDs to issue the profile renewal action to.
-        :type udids: List[str, UUID]
+        :type udids: list[str, UUID]
 
         :return: The ``RenewMdmProfileResponse`` returned may or may not contain a UDIDs not
             processed for renewal.
@@ -331,17 +338,15 @@ class ProApi:
 
     def send_mdm_command_preview(
         self,
-        management_ids: List[Union[str, UUID]],
-        command: Union[
-            EnableLostModeCommand,
-            EraseDeviceCommand,
-            LogOutUserCommand,
-            RestartDeviceCommand,
-            SetRecoveryLockCommand,
-            ShutDownDeviceCommand,
-            CustomCommand,
-        ],
-    ) -> List[SendMdmCommandResponse]:
+        management_ids: list[str | UUID],
+        command: EnableLostModeCommand
+        | EraseDeviceCommand
+        | LogOutUserCommand
+        | RestartDeviceCommand
+        | SetRecoveryLockCommand
+        | ShutDownDeviceCommand
+        | CustomCommand,
+    ) -> list[SendMdmCommandResponse]:
         """Send an MDM command to one or more devices.
 
         .. caution::
@@ -368,14 +373,14 @@ class ProApi:
         :class:`~jamf_pro_sdk.models.pro.computers.ComputerGeneral` for more details.
 
         :param management_ids: A list of device management IDs to issue the MDM command to.
-        :type management_ids: List[Union[str, UUID]],
+        :type management_ids: list[str | UUID],
 
         :param command: The MDM command to send.
         :type command: Union[EnableLostModeCommand, EraseDeviceCommand, RestartDeviceCommand,
             ShutDownDeviceCommand, CustomCommand]
 
         :return: A list of command responses.
-        :rtype: List[SendMdmCommandResponse]
+        :rtype: list[SendMdmCommandResponse]
         """
         data = SendMdmCommand(
             clientData=[SendMdmCommandClientData(managementId=i) for i in management_ids],
@@ -390,20 +395,20 @@ class ProApi:
         self,
         filter_expression: FilterExpression,
         start_page: int = ...,
-        end_page: Optional[int] = ...,
+        end_page: int | None = ...,
         page_size: int = ...,
-        sort_expression: Optional[SortExpression] = ...,
+        sort_expression: SortExpression | None = ...,
         return_generator: Literal[False] = False,
-    ) -> List[MdmCommandStatus]: ...
+    ) -> list[MdmCommandStatus]: ...
 
     @overload
     def get_mdm_commands_v2(
         self,
         filter_expression: FilterExpression,
         start_page: int = ...,
-        end_page: Optional[int] = ...,
+        end_page: int | None = ...,
         page_size: int = ...,
-        sort_expression: Optional[SortExpression] = ...,
+        sort_expression: SortExpression | None = ...,
         return_generator: Literal[True] = True,
     ) -> Iterator[Page]: ...
 
@@ -411,11 +416,11 @@ class ProApi:
         self,
         filter_expression: FilterExpression,
         start_page: int = 0,
-        end_page: Optional[int] = None,
+        end_page: int | None = None,
         page_size: int = 100,
-        sort_expression: Optional[SortExpression] = None,
+        sort_expression: SortExpression | None = None,
         return_generator: bool = False,
-    ) -> Union[List[MdmCommandStatus], Iterator[Page]]:
+    ) -> list[MdmCommandStatus] | Iterator[Page]:
         """Returns a list of MDM commands.
 
         :param filter_expression: The filter expression to apply to the request. At least **one**
@@ -453,8 +458,8 @@ class ProApi:
             the results for all pages will be returned in a single response.
         :type return_generator: bool
 
-        :return: List of MDM commands OR a paginator generator.
-        :rtype: List[~jamf_pro_sdk.models.pro.mdm.MdmCommand] | Iterator[Page]
+        :return: list of MDM commands OR a paginator generator.
+        :rtype: list[~jamf_pro_sdk.models.pro.mdm.MdmCommand] | Iterator[Page]
         """
 
         if command_filters := [i for i in filter_expression.fields if i.name == "command"]:
@@ -489,37 +494,37 @@ class ProApi:
     @overload
     def get_mobile_device_inventory_v2(
         self,
-        sections: Optional[List[str]] = ...,
+        sections: list[str] | None = ...,
         start_page: int = ...,
-        end_page: Optional[int] = ...,
+        end_page: int | None = ...,
         page_size: int = ...,
-        sort_expression: Optional[SortExpression] = ...,
-        filter_expression: Optional[FilterExpression] = ...,
+        sort_expression: SortExpression | None = ...,
+        filter_expression: FilterExpression | None = ...,
         return_generator: Literal[False] = False,
-    ) -> List[MobileDevice]: ...
+    ) -> list[MobileDevice]: ...
 
     @overload
     def get_mobile_device_inventory_v2(
         self,
-        sections: Optional[List[str]] = ...,
+        sections: list[str] | None = ...,
         start_page: int = ...,
-        end_page: Optional[int] = ...,
+        end_page: int | None = ...,
         page_size: int = ...,
-        sort_expression: Optional[SortExpression] = ...,
-        filter_expression: Optional[FilterExpression] = ...,
+        sort_expression: SortExpression | None = ...,
+        filter_expression: FilterExpression | None = ...,
         return_generator: Literal[True] = True,
     ) -> Iterator[Page]: ...
 
     def get_mobile_device_inventory_v2(
         self,
-        sections: Optional[List[str]] = None,
+        sections: list[str] | None = None,
         start_page: int = 0,
-        end_page: Optional[int] = None,
+        end_page: int | None = None,
         page_size: int = 100,
-        sort_expression: Optional[SortExpression] = None,
-        filter_expression: Optional[FilterExpression] = None,
+        sort_expression: SortExpression | None = None,
+        filter_expression: FilterExpression | None = None,
         return_generator: bool = False,
-    ) -> Union[List[MobileDevice], Iterator[Page]]:
+    ) -> list[MobileDevice] | Iterator[Page]:
         """Returns a list of mobile device (iOS and tvOS) inventory records.
 
         :param sections: (optional) Select which sections of the computer's details to return. If
@@ -530,7 +535,7 @@ class ProApi:
 
             .. autoapioptions:: jamf_pro_sdk.models.pro.api_options.get_mobile_device_inventory_v2_allowed_sections
 
-        :type sections: List[str]
+        :type sections: list[str]
 
         :param start_page: (optional) The page to begin returning results from. See
             :class:`Paginator` for more information.
@@ -566,8 +571,8 @@ class ProApi:
             default, the results for all pages will be returned in a single response.
         :type return_generator: bool
 
-        :return: List of computers OR a paginator generator.
-        :rtype: List[~jamf_pro_sdk.models.pro.mobile_devices.MobileDevice] | Iterator[Page]
+        :return: list of computers OR a paginator generator.
+        :rtype: list[~jamf_pro_sdk.models.pro.mobile_devices.MobileDevice] | Iterator[Page]
 
         """
         if not sections:
@@ -599,3 +604,562 @@ class ProApi:
         )
 
         return paginator(return_generator=return_generator)
+
+
+class AsyncProApi:
+    """Provides an async interface to the Jamf Pro API."""
+
+    def __init__(
+        self,
+        request_method: Callable[..., httpx.Response],
+        concurrent_requests_method: Callable[..., AsyncIterator],
+    ):
+        self.api_request = request_method
+        self.concurrent_api_requests = concurrent_requests_method
+
+    # Computer Inventory APIs
+
+    @overload
+    async def get_computer_inventory_v1(
+        self,
+        sections: list[str] | None = ...,
+        start_page: int = ...,
+        end_page: int | None = ...,
+        page_size: int = ...,
+        sort_expression: SortExpression | None = ...,
+        filter_expression: FilterExpression | None = ...,
+        return_generator: Literal[False] = False,
+    ) -> list[Computer]: ...
+
+    @overload
+    async def get_computer_inventory_v1(
+        self,
+        sections: list[str] | None = ...,
+        start_page: int = ...,
+        end_page: int | None = ...,
+        page_size: int = ...,
+        sort_expression: SortExpression | None = ...,
+        filter_expression: FilterExpression | None = ...,
+        return_generator: Literal[True] = True,
+    ) -> AsyncIterator[Page]: ...
+
+    async def get_computer_inventory_v1(
+        self,
+        sections: list[str] | None = None,
+        start_page: int = 0,
+        end_page: int | None = None,
+        page_size: int = 100,
+        sort_expression: SortExpression | None = None,
+        filter_expression: FilterExpression | None = None,
+        return_generator: bool = False,
+    ) -> list[Computer] | AsyncIterator[Page]:
+        """Returns a list of computer inventory records.
+
+        :param sections: (optional) Select which sections of the computer's details to return. If
+            not specific the request will default to ``GENERAL``. If ``ALL`` is passed then all
+            sections will be returned.
+
+            Allowed sections:
+
+            .. autoapioptions:: jamf_pro_sdk.models.pro.api_options.get_computer_inventory_v1_allowed_sections
+
+        :type sections: list[str]
+
+        :param start_page: (optional) The page to begin returning results from. See
+            :class:`AsyncPaginator` for more information.
+        :type start_page: int
+
+        :param end_page: (optional) The page to end returning results at. See :class:`AsyncPaginator` for
+            more information.
+        :type start_page: int
+
+        :param page_size: (optional) The number of results to include in each requested page. See
+            :class:`AsyncPaginator` for more information.
+        :type page_size: int
+
+        :param sort_expression: (optional) The sort fields to apply to the request. See the
+            documentation for :ref:`Pro API Sorting` for more information.
+
+            Allowed sort fields:
+
+            .. autoapioptions:: jamf_pro_sdk.models.pro.api_options.get_computer_inventory_v1_allowed_sort_fields
+
+        :type sort_expression: SortExpression
+
+        :param filter_expression: (optional) The filter expression to apply to the request. See the
+            documentation for :ref:`Pro API Filtering` for more information.
+
+            Allowed filter fields:
+
+            .. autoapioptions:: jamf_pro_sdk.models.pro.api_options.get_computer_inventory_v1_allowed_filter_fields
+
+        :type filter_expression: FilterExpression
+
+        :param return_generator: If ``True`` a generator is returned to iterate over pages. By
+            default, the results for all pages will be returned in a single response.
+        :type return_generator: bool
+
+        :return: list of computers OR a paginator generator.
+        :rtype: list[~jamf_pro_sdk.models.pro.computer.Computer] | AsyncIterator[Page]
+
+        """
+        if not sections:
+            sections = ["GENERAL"]
+        elif "ALL" in sections:
+            sections = get_computer_inventory_v1_allowed_sections[1:]
+
+        if not all([i in get_computer_inventory_v1_allowed_sections for i in sections]):
+            raise ValueError(
+                f"Values for 'sections' must be one of: {', '.join(get_computer_inventory_v1_allowed_sections)}"
+            )
+
+        if sort_expression:
+            sort_expression.validate(get_computer_inventory_v1_allowed_sort_fields)
+
+        if filter_expression:
+            filter_expression.validate(get_computer_inventory_v1_allowed_filter_fields)
+
+        paginator = AsyncPaginator(
+            api_client=self,
+            resource_path="v1/computers-inventory",
+            return_model=Computer,
+            start_page=start_page,
+            end_page=end_page,
+            page_size=page_size,
+            sort_expression=sort_expression,
+            filter_expression=filter_expression,
+            extra_params={"section": ",".join(sections)},
+        )
+
+        return await paginator(return_generator=return_generator)
+
+    # Package APIs
+
+    @overload
+    async def get_packages_v1(
+        self,
+        start_page: int = ...,
+        end_page: int | None = ...,
+        page_size: int = ...,
+        sort_expression: SortExpression | None = ...,
+        filter_expression: FilterExpression | None = ...,
+        return_generator: Literal[False] = False,
+    ) -> list[Package]: ...
+
+    @overload
+    async def get_packages_v1(
+        self,
+        start_page: int = ...,
+        end_page: int | None = ...,
+        page_size: int = ...,
+        sort_expression: SortExpression | None = ...,
+        filter_expression: FilterExpression | None = ...,
+        return_generator: Literal[True] = True,
+    ) -> AsyncIterator[Page]: ...
+
+    async def get_packages_v1(
+        self,
+        start_page: int = 0,
+        end_page: int | None = None,
+        page_size: int = 100,
+        sort_expression: SortExpression | None = None,
+        filter_expression: FilterExpression | None = None,
+        return_generator: bool = False,
+    ) -> list[Package] | AsyncIterator[Page]:
+        """Returns a list of package records.
+
+        :param start_page: (optional) The page to begin returning results from. See
+            :class:`AsyncPaginator` for more information.
+        :type start_page: int
+
+        :param end_page: (optional) The page to end returning results at. See :class:`AsyncPaginator` for
+            more information.
+        :type start_page: int
+
+        :param page_size: (optional) The number of results to include in each requested page. See
+            :class:`AsyncPaginator` for more information.
+        :type page_size: int
+
+        :param sort_expression: (optional) The sort fields to apply to the request. See the
+            documentation for :ref:`Pro API Sorting` for more information.
+
+            Allowed sort fields:
+
+            .. autoapioptions:: jamf_pro_sdk.models.pro.api_options.get_packages_v1_allowed_sort_fields
+
+        :type sort_expression: SortExpression
+
+        :param filter_expression: (optional) The filter expression to apply to the request. See the
+            documentation for :ref:`Pro API Filtering` for more information.
+
+            Allowed filter fields:
+
+            .. autoapioptions:: jamf_pro_sdk.models.pro.api_options.get_packages_v1_allowed_filter_fields
+
+        :type filter_expression: FilterExpression
+
+        :param return_generator: If ``True`` a generator is returned to iterate over pages. By
+            default, the results for all pages will be returned in a single response.
+        :type return_generator: bool
+
+        :return: list of packages OR a paginator generator.
+        :rtype: list[~jamf_pro_sdk.models.pro.packages.package] | AsyncIterator[Page]
+
+        """
+        if sort_expression:
+            sort_expression.validate(get_packages_v1_allowed_sort_fields)
+
+        if filter_expression:
+            filter_expression.validate(get_packages_v1_allowed_filter_fields)
+
+        paginator = AsyncPaginator(
+            api_client=self,
+            resource_path="v1/packages",
+            return_model=Package,
+            start_page=start_page,
+            end_page=end_page,
+            page_size=page_size,
+            sort_expression=sort_expression,
+            filter_expression=filter_expression,
+        )
+
+        return await paginator(return_generator=return_generator)
+
+    # JCDS APIs
+
+    async def get_jcds_files_v1(self) -> list[File]:
+        """Return a list of files in the JCDS.
+
+        :return: list JCDS File objects.
+        :rtype: list[File]
+
+        """
+        resp = await self.api_request(method="get", resource_path="v1/jcds/files")
+        return [File(**i) for i in resp.json()]
+
+    async def create_jcds_file_v1(self) -> NewFile:
+        """Create a new file in the JCDS.
+
+        :return: A JCDS NewFile object.
+        :rtype: NewFile
+
+        """
+        resp = await self.api_request(method="post", resource_path="v1/jcds/files")
+        return NewFile(**resp.json())
+
+    async def get_jcds_file_v1(self, file_name: str) -> DownloadUrl:
+        """Read a JCDS file record by its filename.
+
+        :return: A JCDS DownloadUrl object.
+        :rtype: DownloadUrl
+
+        """
+        resp = await self.api_request(method="get", resource_path=f"v1/jcds/files/{file_name}")
+        return DownloadUrl(**resp.json())
+
+    async def delete_jcds_file_v1(self, file_name: str) -> None:
+        """Delete a file from the JCDS.
+
+        .. warning::
+
+            This operation *WILL NOT* delete an associated package object. It is recommended to use
+            :meth:`~jamf_pro_sdk.clients.classic_api.AsyncClassicApi.delete_package_by_id`.
+
+        """
+        await self.api_request(method="delete", resource_path=f"v1/jcds/files/{file_name}")
+
+    # MDM APIs
+
+    async def renew_mdm_profile_v1(self, udids: list[str | UUID]) -> RenewMdmProfileResponse:
+        """Renews device MDM Profiles, including the device identity certificate within the MDM Profile.
+
+        :param udids: A list of device UDIDs to issue the profile renewal action to.
+        :type udids: list[str, UUID]
+
+        :return: The ``RenewMdmProfileResponse`` returned may or may not contain a UDIDs not
+            processed for renewal.
+        :rtype: RenewMdmProfileResponse
+        """
+        resp = await self.api_request(
+            method="post",
+            resource_path="v1/mdm/renew-profile",
+            data={"udids": [str(i) for i in udids]},
+        )
+
+        try:
+            return RenewMdmProfileResponse(
+                udidsNotProcessed=resp.json()["udidsNotProcessed"]["udids"]
+            )
+        except KeyError:
+            return RenewMdmProfileResponse(udidsNotProcessed=[])
+
+    async def send_mdm_command_preview(
+        self,
+        management_ids: list[str | UUID],
+        command: EnableLostModeCommand
+        | EraseDeviceCommand
+        | LogOutUserCommand
+        | RestartDeviceCommand
+        | SetRecoveryLockCommand
+        | ShutDownDeviceCommand
+        | CustomCommand,
+    ) -> list[SendMdmCommandResponse]:
+        """Send an MDM command to one or more devices.
+
+        .. caution::
+
+            This API is labeled as a **Preview** by Jamf. It may change or become deprecated in
+            favor of another API in a future release.
+
+        Example usage:
+
+        .. code-block:: python
+
+            from jamf_pro_sdk.models.pro.mdm import LogOutUserCommand
+
+            await client.pro_api.send_mdm_command_preview(
+                management_ids=["4eecc1fb-f52d-48c5-9560-c246b23601d3"],
+                command=LogOutUserCommand()
+            )
+
+        Read the documentation for :ref:`MDM Command Models` to view all the options for the
+        supported MDM commands . The management IDs can be obtained from computer inventory records
+        at ``computer.general.managementId``.
+
+        This value is only available through the Pro API. See
+        :class:`~jamf_pro_sdk.models.pro.computers.ComputerGeneral` for more details.
+
+        :param management_ids: A list of device management IDs to issue the MDM command to.
+        :type management_ids: list[str | UUID],
+
+        :param command: The MDM command to send.
+        :type command: Union[EnableLostModeCommand, EraseDeviceCommand, RestartDeviceCommand,
+            ShutDownDeviceCommand, CustomCommand]
+
+        :return: A list of command responses.
+        :rtype: list[SendMdmCommandResponse]
+        """
+        data = SendMdmCommand(
+            clientData=[SendMdmCommandClientData(managementId=i) for i in management_ids],
+            commandData=command,
+        )
+
+        resp = await self.api_request(
+            method="post", resource_path="preview/mdm/commands", data=data
+        )
+        return [SendMdmCommandResponse(**i) for i in resp.json()]
+
+    @overload
+    async def get_mdm_commands_v2(
+        self,
+        filter_expression: FilterExpression,
+        start_page: int = ...,
+        end_page: int | None = ...,
+        page_size: int = ...,
+        sort_expression: SortExpression | None = ...,
+        return_generator: Literal[False] = False,
+    ) -> list[MdmCommandStatus]: ...
+
+    @overload
+    async def get_mdm_commands_v2(
+        self,
+        filter_expression: FilterExpression,
+        start_page: int = ...,
+        end_page: int | None = ...,
+        page_size: int = ...,
+        sort_expression: SortExpression | None = ...,
+        return_generator: Literal[True] = True,
+    ) -> AsyncIterator[Page]: ...
+
+    async def get_mdm_commands_v2(
+        self,
+        filter_expression: FilterExpression,
+        start_page: int = 0,
+        end_page: int | None = None,
+        page_size: int = 100,
+        sort_expression: SortExpression | None = None,
+        return_generator: bool = False,
+    ) -> list[MdmCommandStatus] | AsyncIterator[Page]:
+        """Returns a list of MDM commands.
+
+        :param filter_expression: The filter expression to apply to the request. At least **one**
+            filter is required for this operation. See the documentation for
+            :ref:`Pro API Filtering` for more information.
+
+            Allowed filter fields:
+
+            .. autoapioptions:: jamf_pro_sdk.models.pro.api_options.get_mdm_commands_v2_allowed_filter_fields
+
+        :type filter_expression: FilterExpression
+
+        :param start_page: (optional) The page to begin returning results from. See
+            :class:`AsyncPaginator` for more information.
+        :type start_page: int
+
+        :param end_page: (optional) The page to end returning results at. See :class:`AsyncPaginator` for
+            more information.
+        :type start_page: int
+
+        :param page_size: (optional) The number of results to include in each requested page. See
+            :class:`AsyncPaginator` for more information.
+        :type page_size: int
+
+        :param sort_expression: (optional) The sort fields to apply to the request. See the
+            documentation for :ref:`Pro API Sorting` for more information.
+
+            Allowed sort fields:
+
+            .. autoapioptions:: jamf_pro_sdk.models.pro.api_options.get_mdm_commands_v2_allowed_sort_fields
+
+        :type sort_expression: SortExpression
+
+        :param return_generator: If ``True`` an iterator is returned that yields pages. By default,
+            the results for all pages will be returned in a single response.
+        :type return_generator: bool
+
+        :return: list of MDM commands OR a paginator generator.
+        :rtype: list[~jamf_pro_sdk.models.pro.mdm.MdmCommand] | AsyncIterator[Page]
+        """
+
+        if command_filters := [i for i in filter_expression.fields if i.name == "command"]:
+            if not all(
+                [i.value in get_mdm_commands_v2_allowed_command_types for i in command_filters]
+            ):
+                raise ValueError(
+                    f"Values for 'command' filters must be one of: {', '.join(get_mdm_commands_v2_allowed_command_types)}"
+                )
+
+        if sort_expression:
+            sort_expression.validate(get_mdm_commands_v2_allowed_sort_fields)
+
+        if filter_expression:
+            filter_expression.validate(get_mdm_commands_v2_allowed_filter_fields)
+
+        paginator = AsyncPaginator(
+            api_client=self,
+            resource_path="v2/mdm/commands",
+            return_model=MdmCommandStatus,
+            start_page=start_page,
+            end_page=end_page,
+            page_size=page_size,
+            sort_expression=sort_expression,
+            filter_expression=filter_expression,
+        )
+
+        return await paginator(return_generator=return_generator)
+
+    # Mobile Device Inventory APIs
+
+    @overload
+    async def get_mobile_device_inventory_v2(
+        self,
+        sections: list[str] | None = ...,
+        start_page: int = ...,
+        end_page: int | None = ...,
+        page_size: int = ...,
+        sort_expression: SortExpression | None = ...,
+        filter_expression: FilterExpression | None = ...,
+        return_generator: Literal[False] = False,
+    ) -> list[MobileDevice]: ...
+
+    @overload
+    async def get_mobile_device_inventory_v2(
+        self,
+        sections: list[str] | None = ...,
+        start_page: int = ...,
+        end_page: int | None = ...,
+        page_size: int = ...,
+        sort_expression: SortExpression | None = ...,
+        filter_expression: FilterExpression | None = ...,
+        return_generator: Literal[True] = True,
+    ) -> AsyncIterator[Page]: ...
+
+    async def get_mobile_device_inventory_v2(
+        self,
+        sections: list[str] | None = None,
+        start_page: int = 0,
+        end_page: int | None = None,
+        page_size: int = 100,
+        sort_expression: SortExpression | None = None,
+        filter_expression: FilterExpression | None = None,
+        return_generator: bool = False,
+    ) -> list[MobileDevice] | AsyncIterator[Page]:
+        """Returns a list of mobile device (iOS and tvOS) inventory records.
+
+        :param sections: (optional) Select which sections of the computer's details to return. If
+            not specific the request will default to ``GENERAL``. If ``ALL`` is passed then all
+            sections will be returned.
+
+            Allowed sections:
+
+            .. autoapioptions:: jamf_pro_sdk.models.pro.api_options.get_mobile_device_inventory_v2_allowed_sections
+
+        :type sections: list[str]
+
+        :param start_page: (optional) The page to begin returning results from. See
+            :class:`AsyncPaginator` for more information.
+        :type start_page: int
+
+        :param end_page: (optional) The page to end returning results at. See :class:`AsyncPaginator` for
+            more information.
+        :type start_page: int
+
+        :param page_size: (optional) The number of results to include in each requested page. See
+            :class:`AsyncPaginator` for more information.
+        :type page_size: int
+
+        :param sort_expression: (optional) The sort fields to apply to the request. See the
+            documentation for :ref:`Pro API Sorting` for more information.
+
+            Allowed sort fields:
+
+            .. autoapioptions:: jamf_pro_sdk.models.pro.api_options.get_mobile_device_inventory_v2_allowed_sort_fields
+
+        :type sort_expression: SortExpression
+
+        :param filter_expression: (optional) The filter expression to apply to the request. See the
+            documentation for :ref:`Pro API Filtering` for more information.
+
+            Allowed filter fields:
+
+            .. autoapioptions:: jamf_pro_sdk.models.pro.api_options.get_mobile_device_inventory_v2_allowed_filter_fields
+
+        :type filter_expression: FilterExpression
+
+        :param return_generator: If ``True`` a generator is returned to iterate over pages. By
+            default, the results for all pages will be returned in a single response.
+        :type return_generator: bool
+
+        :return: list of computers OR a paginator generator.
+        :rtype: list[~jamf_pro_sdk.models.pro.mobile_devices.MobileDevice] | AsyncIterator[Page]
+
+        """
+        if not sections:
+            sections = ["GENERAL"]
+        elif "ALL" in sections:
+            sections = get_mobile_device_inventory_v2_allowed_sections[1:]
+
+        if not all([i in get_mobile_device_inventory_v2_allowed_sections for i in sections]):
+            raise ValueError(
+                f"Values for 'sections' must be one of: {', '.join(get_mobile_device_inventory_v2_allowed_sections)}"
+            )
+
+        if sort_expression:
+            sort_expression.validate(get_mobile_device_inventory_v2_allowed_sort_fields)
+
+        if filter_expression:
+            filter_expression.validate(get_mobile_device_inventory_v2_allowed_filter_fields)
+
+        paginator = AsyncPaginator(
+            api_client=self,
+            resource_path="v2/mobile-devices/detail",
+            return_model=MobileDevice,
+            start_page=start_page,
+            end_page=end_page,
+            page_size=page_size,
+            sort_expression=sort_expression,
+            filter_expression=filter_expression,
+            extra_params={"section": ",".join(sections)},
+        )
+
+        return await paginator(return_generator=return_generator)

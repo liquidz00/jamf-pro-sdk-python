@@ -1,5 +1,3 @@
-from typing import List, Optional
-
 from pydantic import ConfigDict
 
 from .. import BaseModel
@@ -23,7 +21,7 @@ class ClassicAdvancedComputerSearchDisplayField(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    name: Optional[str] = None
+    name: str | None = None
 
 
 class ClassicAdvancedComputerSearchResult(BaseModel):
@@ -35,9 +33,9 @@ class ClassicAdvancedComputerSearchResult(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    id: Optional[int] = None
-    name: Optional[str] = None
-    udid: Optional[str] = None
+    id: int | None = None
+    name: str | None = None
+    udid: str | None = None
 
 
 class ClassicAdvancedComputerSearchesItem(ClassicApiModel):
@@ -48,8 +46,8 @@ class ClassicAdvancedComputerSearchesItem(ClassicApiModel):
 
     model_config = ConfigDict(extra="allow")
 
-    id: Optional[int] = None
-    name: Optional[str] = None
+    id: int | None = None
+    name: str | None = None
 
 
 class ClassicAdvancedComputerSearch(ClassicApiModel):
@@ -70,9 +68,9 @@ class ClassicAdvancedComputerSearch(ClassicApiModel):
     _xml_array_item_names = _XML_ARRAY_ITEM_NAMES
     _xml_write_fields = {"name", "site", "criteria", "display_fields"}
 
-    id: Optional[int] = None
-    name: Optional[str] = None
-    site: Optional[ClassicSite] = None
-    criteria: Optional[List[ClassicCriterion]] = None
-    display_fields: Optional[List[ClassicAdvancedComputerSearchDisplayField]] = None
-    computers: Optional[List[ClassicAdvancedComputerSearchResult]] = None
+    id: int | None = None
+    name: str | None = None
+    site: ClassicSite | None = None
+    criteria: list[ClassicCriterion] | None = None
+    display_fields: list[ClassicAdvancedComputerSearchDisplayField] | None = None
+    computers: list[ClassicAdvancedComputerSearchResult] | None = None

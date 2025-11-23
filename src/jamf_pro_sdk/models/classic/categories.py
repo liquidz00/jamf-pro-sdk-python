@@ -1,5 +1,3 @@
-from typing import Optional
-
 from pydantic import ConfigDict
 
 from .. import BaseModel
@@ -15,8 +13,8 @@ class ClassicCategoriesItem(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    id: Optional[int] = None
-    name: Optional[str] = None
+    id: int | None = None
+    name: str | None = None
 
 
 class ClassicCategory(ClassicApiModel):
@@ -35,6 +33,6 @@ class ClassicCategory(ClassicApiModel):
     _xml_array_item_names = _XML_ARRAY_ITEM_NAMES
     _xml_write_fields = {"name", "priority"}
 
-    id: Optional[int] = None
-    name: Optional[str] = None
-    priority: Optional[int] = None
+    id: int | None = None
+    name: str | None = None
+    priority: int | None = None

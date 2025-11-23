@@ -1,3 +1,4 @@
+import asyncio
 import concurrent.futures
 import inspect
 import random
@@ -5,10 +6,9 @@ import string
 import time
 import uuid
 from functools import lru_cache
-from typing import Iterator, Type, Union, cast
+from typing import AsyncIterator, Iterator, Type, cast
 
-import requests
-import requests.adapters
+import httpx
 
 try:
     from faker import Faker
@@ -39,32 +39,31 @@ class WebhooksClient:
         """
         self.url = url
         self.max_concurrency = max_concurrency
-        self.session = requests.Session()
-
-        adapter = requests.adapters.HTTPAdapter(
-            pool_connections=max_concurrency, pool_maxsize=max_concurrency
+        limits = httpx.Limits(
+            max_connections=max_concurrency, max_keepalive_connections=max_concurrency
         )
-        self.session.mount(prefix="http://", adapter=adapter)
-        self.session.mount(prefix="https://", adapter=adapter)
+        self.session = httpx.Client(limits=limits)
 
     @staticmethod
     def _batch(
-        generator: Union[WebhookGenerator, Type[WebhookGenerator]], count: int
+        generator: WebhookGenerator | Type[WebhookGenerator], count: int
     ) -> Iterator[webhooks.WebhookModel]:
         for _ in range(count):
             yield generator.build()
 
-    def send_webhook(self, webhook: webhooks.WebhookModel) -> requests.Response:
+    def send_webhook(self, webhook: webhooks.WebhookModel) -> httpx.Response:
         """Send a single webhook in an HTTP POST request to the configured URL.
 
         :param webhook: The webhook object that will be serialized to JSON.
         :type webhook: ~webhooks.WebhookModel
 
-        :return: `Requests Response <https://requests.readthedocs.io/en/latest/api/#requests.Response>`_ object
-        :rtype: requests.Response
+        :return: `httpx Response <https://www.python-httpx.org/api/#response>`_ object
+        :rtype: httpx.Response
         """
         response = self.session.post(
-            self.url, headers={"Content-Type": "application/json"}, data=webhook.model_dump_json()
+            self.url,
+            headers={"Content-Type": "application/json"},
+            content=webhook.model_dump_json(),
         )
         return response
 
@@ -72,7 +71,7 @@ class WebhooksClient:
         self,
         webhook: Type[webhooks.WebhookModel],
         count: int = 1,
-    ) -> Iterator[requests.Response]:
+    ) -> Iterator[httpx.Response]:
         """Send one or more randomized webhooks to the configured URL using a webhook model. This
         method will automatically make the requests concurrently up to the configured max concurrency.
 
@@ -83,9 +82,9 @@ class WebhooksClient:
         :type count: int
 
         :return: An iterator that will yield
-            `Requests Response <https://requests.readthedocs.io/en/latest/api/#requests.Response>`_ object
+            `httpx Response <https://www.python-httpx.org/api/#response>`_ object
             objects.
-        :rtype: Iterator[requests.Response]
+        :rtype: Iterator[httpx.Response]
         """
         generator = get_webhook_generator(webhook)
         with concurrent.futures.ThreadPoolExecutor(max_workers=self.max_concurrency) as executor:
@@ -94,6 +93,100 @@ class WebhooksClient:
             )
 
         for result in executor_results:
+            yield result
+
+
+class AsyncWebhooksClient:
+    def __init__(
+        self,
+        url: str,
+        max_concurrency: int = 10,
+    ):
+        """An async client for simulating webhooks to an HTTP server.
+
+        :param url: The full URL the client will send webhooks to. Include the scheme, port, and path.
+        :type url: str
+
+        :param max_concurrency: The maximum number of connections the client will make when sending
+            webhooks to the given URL (defaults to `10`).
+        :type max_concurrency: int
+        """
+        self.url = url
+        self.max_concurrency = max_concurrency
+        limits = httpx.Limits(
+            max_connections=max_concurrency, max_keepalive_connections=max_concurrency
+        )
+        self.async_client = httpx.AsyncClient(limits=limits)
+
+    async def __aenter__(self):
+        """Async context manager entry."""
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Async context manager exit."""
+        await self.async_client.aclose()
+
+    @staticmethod
+    def _batch(
+        generator: WebhookGenerator | Type[WebhookGenerator], count: int
+    ) -> Iterator[webhooks.WebhookModel]:
+        """Generate a batch of webhook models."""
+        for _ in range(count):
+            yield generator.build()
+
+    async def send_webhook(self, webhook: webhooks.WebhookModel) -> httpx.Response:
+        """Send a single webhook in an HTTP POST request to the configured URL asynchronously.
+
+        :param webhook: The webhook object that will be serialized to JSON.
+        :type webhook: ~webhooks.WebhookModel
+
+        :return: `httpx Response <https://www.python-httpx.org/api/#response>`_ object
+        :rtype: httpx.Response
+        """
+        response = await self.async_client.post(
+            self.url,
+            headers={"Content-Type": "application/json"},
+            content=webhook.model_dump_json(),
+        )
+        return response
+
+    async def fire(
+        self,
+        webhook: Type[webhooks.WebhookModel],
+        count: int = 1,
+    ) -> AsyncIterator[httpx.Response]:
+        """Send one or more randomized webhooks to the configured URL using a webhook model asynchronously.
+        This method will automatically make the requests concurrently up to the configured max concurrency.
+
+        :param webhook: A webhook model. This must be the ``type`` and not an instantiated object.
+        :type webhook: Type[webhooks.WebhookModel]
+
+        :param count: The number of webhook events to send (defaults to `1`).
+        :type count: int
+
+        :return: An async iterator that will yield
+            `httpx Response <https://www.python-httpx.org/api/#response>`_ object
+            objects.
+        :rtype: AsyncIterator[httpx.Response]
+        """
+        generator = get_webhook_generator(webhook)
+        webhooks_list = list(self._batch(generator=generator, count=count))
+
+        # Create semaphore to limit concurrency
+        semaphore = asyncio.Semaphore(self.max_concurrency)
+
+        async def bounded_send(wh):
+            """Send webhook with semaphore limit."""
+            async with semaphore:
+                return await self.send_webhook(wh)
+
+        # Create tasks for all webhooks
+        tasks = [bounded_send(wh) for wh in webhooks_list]
+
+        # Execute all tasks concurrently
+        results = await asyncio.gather(*tasks)
+
+        for result in results:
             yield result
 
 

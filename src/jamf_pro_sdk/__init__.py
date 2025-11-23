@@ -1,5 +1,5 @@
 from .__about__ import __title__, __version__
-from .clients import JamfProClient
+from .clients import AsyncJamfProClient, JamfProClient
 from .clients.auth import (
     ApiClientCredentialsProvider,
     UserCredentialsProvider,
@@ -13,6 +13,7 @@ from .models.client import SessionConfig
 __all__ = [
     "__title__",
     "__version__",
+    "AsyncJamfProClient",
     "JamfProClient",
     "ApiClientCredentialsProvider",
     "UserCredentialsProvider",

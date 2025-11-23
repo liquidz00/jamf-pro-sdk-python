@@ -1,13 +1,20 @@
 from __future__ import annotations
 
+import asyncio
 import math
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Dict, Iterable, Iterator, List, Optional, Type, Union
+from typing import (
+    TYPE_CHECKING,
+    AsyncIterator,
+    Iterable,
+    Iterator,
+    Type,
+)
 
 from pydantic import BaseModel
 
 if TYPE_CHECKING:
-    from . import ProApi
+    from . import AsyncProApi, ProApi
 
 
 # QUERY FILTERING
@@ -21,7 +28,7 @@ class FilterEntry:
 
 
 class FilterExpression:
-    def __init__(self, filter_expression: str, fields: List[FilterEntry]):
+    def __init__(self, filter_expression: str, fields: list[FilterEntry]):
         self.filter_expression = filter_expression
         self.fields = fields
 
@@ -40,7 +47,7 @@ class FilterExpression:
     def __or__(self, expression: FilterExpression):
         return self._compose(expression=expression, sep=",")
 
-    def validate(self, allowed_fields: List[str]):
+    def validate(self, allowed_fields: list[str]):
         if not all([i.name in allowed_fields for i in self.fields]):
             raise ValueError(
                 f"A field is not in allowed filter fields: {', '.join(allowed_fields)}"
@@ -51,38 +58,38 @@ class FilterField:
     def __init__(self, name: str):
         self.name = name
 
-    def _return_expression(self, operator: str, value: Union[bool, int, str]) -> FilterExpression:
+    def _return_expression(self, operator: str, value: bool | int | str) -> FilterExpression:
         return FilterExpression(
             filter_expression=f"{self.name}{operator}{value}",
             fields=[FilterEntry(name=self.name, op=operator, value=str(value))],
         )
 
-    def eq(self, value: Union[bool, int, str]) -> FilterExpression:
+    def eq(self, value: bool | int | str) -> FilterExpression:
         return self._return_expression("==", value)
 
-    def ne(self, value: Union[bool, int, str]) -> FilterExpression:
+    def ne(self, value: bool | int | str) -> FilterExpression:
         return self._return_expression("!=", value)
 
-    def lt(self, value: Union[bool, int, str]) -> FilterExpression:
+    def lt(self, value: bool | int | str) -> FilterExpression:
         return self._return_expression("<", value)
 
-    def lte(self, value: Union[bool, int, str]) -> FilterExpression:
+    def lte(self, value: bool | int | str) -> FilterExpression:
         return self._return_expression("<=", value)
 
-    def gt(self, value: Union[bool, int, str]) -> FilterExpression:
+    def gt(self, value: bool | int | str) -> FilterExpression:
         return self._return_expression(">", value)
 
-    def gte(self, value: Union[bool, int, str]) -> FilterExpression:
+    def gte(self, value: bool | int | str) -> FilterExpression:
         return self._return_expression(">=", value)
 
     @staticmethod
     def _iter_to_str(iterable: Iterable):
         return ",".join([str(i) for i in iterable])
 
-    def is_in(self, value: Iterable[Union[bool, int, str]]) -> FilterExpression:
+    def is_in(self, value: Iterable[bool | int | str]) -> FilterExpression:
         return self._return_expression("=in=", f"({self._iter_to_str(value)})")
 
-    def not_in(self, value: Iterable[Union[bool, int, str]]) -> FilterExpression:
+    def not_in(self, value: Iterable[bool | int | str]) -> FilterExpression:
         return self._return_expression("=out=", f"({self._iter_to_str(value)})")
 
 
@@ -97,7 +104,7 @@ def filter_group(expression: FilterExpression) -> FilterExpression:
 
 
 class SortExpression:
-    def __init__(self, sort_expression: str, fields: List[str]):
+    def __init__(self, sort_expression: str, fields: list[str]):
         self.sort_expression = sort_expression
         self.fields = fields
 
@@ -110,7 +117,7 @@ class SortExpression:
             fields=self.fields + expression.fields,
         )
 
-    def validate(self, allowed_fields: List[str]):
+    def validate(self, allowed_fields: list[str]):
         if not all([i in allowed_fields for i in self.fields]):
             raise ValueError(f"A field is not in allowed sort fields: {', '.join(allowed_fields)}")
 
@@ -148,11 +155,11 @@ class Paginator:
         resource_path: str,
         return_model: Type[BaseModel],
         start_page: int = 0,
-        end_page: Optional[int] = None,
+        end_page: int | None = None,
         page_size: int = 100,
-        sort_expression: Optional[SortExpression] = None,
-        filter_expression: Optional[FilterExpression] = None,
-        extra_params: Optional[Dict[str, str]] = None,
+        sort_expression: SortExpression | None = None,
+        filter_expression: FilterExpression | None = None,
+        extra_params: dict[str, str] | None = None,
     ):
         """A paginator for the Jamf Pro API. A paginator automatically iterates over an API if
         multiple unreturned pages are detected in the response. Paginated requests are performed
@@ -258,7 +265,7 @@ class Paginator:
             ):
                 yield page
 
-    def __call__(self, return_generator: bool = True) -> Union[List, Iterator[Page]]:
+    def __call__(self, return_generator: bool = True) -> list | Iterator[Page]:
         """Call the instantiated paginator to return results.
 
         :param return_generator: If ``True`` a generator is returned to iterate over pages. If
@@ -267,7 +274,7 @@ class Paginator:
 
         :return: An iterator that yields :class:`~Page` objects, or a list of responses if
             ``return_generator`` is ``False``.
-        :rtype: Union[List, Iterator[Page]]
+        :rtype: list | Iterator[Page]]
         """
         generator = self._request()
         if return_generator:
@@ -276,5 +283,149 @@ class Paginator:
             results = []
             for i in sorted([p for p in generator], key=lambda x: x.page):
                 results.extend(i.results)
+
+            return results
+
+
+class AsyncPaginator:
+    def __init__(
+        self,
+        api_client: "AsyncProApi",
+        resource_path: str,
+        return_model: Type[BaseModel],
+        start_page: int = 0,
+        end_page: int | None = None,
+        page_size: int = 100,
+        sort_expression: SortExpression | None = None,
+        filter_expression: FilterExpression | None = None,
+        extra_params: dict[str, str] | None = None,
+    ):
+        """An async paginator for the Jamf Pro API. A paginator automatically iterates over an API if
+        multiple unreturned pages are detected in the response. Paginated requests are performed
+        concurrently using asyncio.
+
+        :param api_client: An async Jamf Pro API client.
+        :type api_client: AsyncProApi
+
+        :param resource_path: The API resource path the paginator will make requests to. This path
+            should begin with the API version and not the ``/api`` base path.
+        :type resource_path: str
+
+        :param return_model: A Pydantic model to parse the results of the request as. If not set
+            the raw JSON response is returned.
+        :type return_model: Type[BaseModel]
+
+        :param start_page: (optional) The page to begin returning results from. Generally this value
+            should be left at the default (``0``).
+
+            .. note::
+
+                Pages in the Pro API are zero-indexed. In a response that includes 10 pages the first
+                page is ``0`` and the last page is ``9``.
+
+        :type start_page: int
+
+        :param end_page: (optional) The page number to stop pagination on. The ``end_page`` argument
+            allows for retrieving page ranges (e.g. 2 - 4) or a single page result by using the same
+            number for both start and end values.
+        :type start_page: int
+
+        :param page_size: (optional) The number of results to include in each requested page. The
+            default value is ``100`` and the maximum value is ``2000``.
+        :type page_size: int
+
+        :param sort_expression: (optional) The sort fields to apply to the request. See the
+            documentation for :ref:`Pro API Sorting` for more information.
+        :type sort_expression: SortExpression
+
+        :param filter_expression: (optional) The filter expression to apply to the request. See the
+            documentation for :ref:`Pro API Filtering` for more information.
+        :type filter_expression: FilterExpression
+
+        :param extra_params: (optional) A dictionary of key-value pairs that will be added to the
+            query string parameters of the requests.
+        :type extra_params: Dict[str, str]
+
+        """
+        self._api_client = api_client
+        self.resource_path = resource_path
+        self.return_model = return_model
+        self.start_page = start_page
+        self.end_page = end_page
+        self.page_size = page_size
+        self.sort_expression = sort_expression
+        self.filter_expression = filter_expression
+        self.extra_params = extra_params
+
+    async def _paginated_request(self, page: int) -> Page:
+        query_params: dict = {"page": page, "page-size": self.page_size}
+        if self.sort_expression:
+            query_params["sort"] = str(self.sort_expression)
+        if self.filter_expression:
+            query_params["filter"] = str(self.filter_expression)
+        if self.extra_params:
+            query_params.update(self.extra_params)
+
+        response = await self._api_client.api_request(
+            method="get", resource_path=self.resource_path, query_params=query_params
+        )
+        response_data = response.json()
+
+        return Page(
+            page=page,
+            page_count=len(response_data["results"]),
+            total_count=response_data["totalCount"],
+            results=(
+                [self.return_model.model_validate(i) for i in response_data["results"]]
+                if self.return_model
+                else response_data["results"]
+            ),
+        )
+
+    async def _request(self) -> AsyncIterator[Page]:
+        first_page = await self._paginated_request(page=self.start_page)
+        yield first_page
+
+        total_count = (
+            min(first_page.total_count, (self.end_page + 1) * self.page_size)
+            if self.end_page
+            else first_page.total_count
+        )
+
+        if total_count > (results_count := len(first_page.results)):
+            remaining_pages = [
+                i
+                for i in range(
+                    self.start_page + 1,
+                    math.ceil((total_count - results_count) / self.page_size) + 1,
+                )
+            ]
+
+            # Use asyncio.gather for concurrent page requests
+            pages = await asyncio.gather(
+                *[self._paginated_request(page=i) for i in remaining_pages]
+            )
+
+            for page in sorted(pages, key=lambda x: x.page):
+                yield page
+
+    async def __call__(self, return_generator: bool = True) -> list | AsyncIterator[Page]:
+        """Call the instantiated async paginator to return results.
+
+        :param return_generator: If ``True`` an async generator is returned to iterate over pages. If
+            ``False`` the results for all pages will be returned in a single list response.
+        :type return_generator: bool
+
+        :return: An async iterator that yields :class:`~Page` objects, or a list of responses if
+            ``return_generator`` is ``False``.
+        :rtype: list | AsyncIterator[Page]
+        """
+        generator = self._request()
+        if return_generator:
+            return generator
+        else:
+            results = []
+            async for page in generator:
+                results.extend(page.results)
 
             return results
